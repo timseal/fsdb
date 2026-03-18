@@ -7,7 +7,7 @@ module Fsdb
   module Ai
     ANTHROPIC_URL    = "https://api.anthropic.com/v1/messages"
     DEFAULT_OLLAMA_URL   = "http://pmacs-dev-142.local:11434"
-    DEFAULT_OLLAMA_MODEL = "gemma3:12b"
+    DEFAULT_OLLAMA_MODEL = "gemma3:1b"
     FAILURE_LIMIT = 3
 
     @mutex             = Mutex.new
