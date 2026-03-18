@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "find"
 require "fileutils"
 
 module Fsdb
@@ -18,26 +17,38 @@ module Fsdb
     SQL
 
     def initialize(db, root)
-      @db   = db
-      @root = File.expand_path(root.to_s)
+      @db             = db
+      @root           = File.expand_path(root.to_s)
+      @children_cache = {}
     end
 
     # Phase 1: walk filesystem, upsert all entries. Yields each dir path for progress display.
+    # Each directory is read exactly once and cached for phase 2.
     # Returns {files: N, dirs: N}.
     def scan(&progress)
       files = dirs = 0
+      queue = [@root]
 
       @db.transaction do
-        Find.find(@root) do |path|
-          next if File.symlink?(path)
+        until queue.empty?
+          dir      = queue.shift
+          children = safe_children(dir)
+          @children_cache[dir] = children
 
-          if File.directory?(path)
-            upsert_dir(path)
-            dirs += 1
-            progress&.call(path)
-          elsif File.file?(path)
-            upsert_file(path)
-            files += 1
+          upsert_dir(dir)
+          dirs += 1
+          progress&.call(dir)
+
+          children.each do |name|
+            child = File.join(dir, name)
+            next if File.symlink?(child)
+
+            if File.directory?(child)
+              queue << child
+            elsif File.file?(child)
+              upsert_file(child)
+              files += 1
+            end
           end
         end
       end
@@ -45,22 +56,16 @@ module Fsdb
       { files:, dirs: }
     end
 
-    # Returns [{path:, children:[]}] for every catalogued directory under root
-    # whose depth (relative to root) is <= max_depth. Called after scan.
+    # Returns [{path:, children:[]}] for every directory under root whose depth
+    # is <= max_depth. Uses the cache populated during scan — no extra disk reads.
     def ai_candidate_dirs(max_depth: Integer(ENV.fetch("FSDB_AI_MAX_DEPTH", "3")))
-      rows = @db.execute(
-        "SELECT path FROM entries WHERE is_dir = 1 AND path LIKE ? ORDER BY path",
-        ["#{@root}/%"],
-      )
-
-      rows.filter_map do |row|
-        path  = row["path"]
+      @children_cache.filter_map do |path, children|
+        next if path == @root
         depth = path.delete_prefix("#{@root}/").count("/") + 1
         next unless depth <= max_depth
 
-        children = safe_children(path)
         { path:, children: }
-      end
+      end.sort_by { |c| c[:path] }
     end
 
     # Phase 2: run AI suggestions in batches. Yields (batch_index, total_batches) for progress.
