@@ -13,23 +13,62 @@ module Fsdb
     # ── scan ──────────────────────────────────────────────────────────────────
 
     desc "scan PATH", "Walk PATH, detect content types, store in catalogue"
-    option :ai,       type: :boolean, default: false, desc: "Use AI to suggest topic categories"
-    option :provider, type: :string,  desc: "AI provider: ollama (default) or anthropic"
-    option :force,    type: :boolean, default: false, desc: "Re-scan even if entries already exist"
+    option :ai,         type: :boolean, default: false, desc: "Use AI to suggest topic categories"
+    option :provider,   type: :string,                  desc: "AI provider: ollama (default) or anthropic"
+    option :batch_size, type: :numeric, default: 10,    desc: "Directories per AI request"
+    option :yes,        type: :boolean, default: false, aliases: "-y", desc: "Skip AI confirmation prompt"
     def scan(path)
       with_db do |db|
         root = File.expand_path(path)
         error_exit("#{root} does not exist") unless File.exist?(root)
 
-        bar = TTY::ProgressBar.new("Scanning [:bar] :path", total: nil, width: 30, clear: true)
-
         ENV["FSDB_AI_PROVIDER"] = options[:provider] if options[:provider]
-        scanner = Scanner.new(db, root, ai_suggest: options[:ai])
-        result  = scanner.run { |dir| bar.advance(path: truncate(dir, 60)) }
-        bar.finish
 
-        pastel = Pastel.new
-        puts pastel.green("Done.") + " Catalogued #{result[:files]} files and #{result[:dirs]} directories."
+        pastel  = Pastel.new
+        scanner = Scanner.new(db, root)
+
+        # ── Phase 1: filesystem walk ────────────────────────────────────────
+        bar    = TTY::ProgressBar.new("Scanning [:bar]", total: nil, width: 30, clear: true)
+        result = scanner.scan { bar.advance }
+        bar.finish
+        puts pastel.green("Scanned") + " #{result[:files]} files, #{result[:dirs]} dirs."
+
+        # ── Phase 2: AI suggestions ─────────────────────────────────────────
+        return unless options[:ai]
+
+        batch_size = options[:batch_size]
+        candidates = scanner.ai_candidate_dirs
+        n_requests = (candidates.size.to_f / batch_size).ceil
+
+        if candidates.empty?
+          puts "No directories eligible for AI suggestions."
+          return
+        end
+
+        model    = ENV.fetch("FSDB_OLLAMA_MODEL", Ai::DEFAULT_OLLAMA_MODEL)
+        provider = ENV.fetch("FSDB_AI_PROVIDER", "ollama")
+        puts "\n#{pastel.bold("AI suggestions")}"
+        puts "  Provider   : #{provider} (#{model})"
+        puts "  Directories: #{candidates.size}"
+        puts "  Batch size : #{batch_size} dirs/request"
+        puts "  Requests   : #{n_requests}"
+
+        unless options[:yes]
+          print "\nProceed? [y/N] "
+          return unless $stdin.gets.to_s.strip.downcase == "y"
+        end
+
+        ai_bar = TTY::ProgressBar.new(
+          "  Requesting [:bar] :current/:total",
+          total: n_requests, width: 30,
+        )
+
+        assigned = scanner.suggest_in_batches(candidates, batch_size:) do |_i, _total|
+          ai_bar.advance
+        end
+        ai_bar.finish
+
+        puts pastel.green("Done.") + " Assigned #{assigned} category tag(s) across #{candidates.size} directories."
       end
     end
 

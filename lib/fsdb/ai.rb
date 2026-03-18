@@ -15,6 +15,29 @@ module Fsdb
     @circuit_open      = false
 
     class << self
+      # Batch: send many directories in one prompt.
+      # candidates: [{path:, children:}, ...]
+      # Returns: {path => [categories]}
+      def suggest_categories_batch(candidates, existing_categories, max: 3)
+        return {} if candidates.empty?
+
+        if @circuit_open
+          log "circuit breaker open — skipping batch of #{candidates.size} dirs"
+          return {}
+        end
+
+        provider = ENV.fetch("FSDB_AI_PROVIDER", "ollama")
+
+        @mutex.synchronize do
+          result = dispatch_batch(provider, candidates, existing_categories, max)
+          reset_failures
+          result
+        end
+      rescue Faraday::Error, JSON::ParserError, StandardError => e
+        record_failure("batch(#{candidates.size})", e)
+        {}
+      end
+
       def suggest_categories(dir_path, child_names, existing_categories, max: 3)
         if @circuit_open
           log "circuit breaker open — skipping AI for #{dir_path}"
@@ -39,6 +62,112 @@ module Fsdb
       end
 
       private
+
+      def dispatch_batch(provider, candidates, existing, max)
+        case provider
+        when "ollama"    then batch_via_ollama(candidates, existing, max)
+        when "anthropic" then batch_via_anthropic(candidates, existing, max)
+        else
+          log "unknown FSDB_AI_PROVIDER '#{provider}' — skipping"
+          {}
+        end
+      end
+
+      def batch_via_ollama(candidates, existing, max)
+        base_url = ENV.fetch("FSDB_OLLAMA_URL", DEFAULT_OLLAMA_URL)
+        model    = ENV.fetch("FSDB_OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL)
+        prompt   = build_batch_prompt(candidates, existing, max)
+
+        log "ollama #{model} — batch of #{candidates.size} dirs"
+
+        conn = Faraday.new(url: base_url) do |f|
+          f.request :json
+          f.response :raise_error
+        end
+
+        response = conn.post("/api/chat") do |req|
+          req.body = { model:, stream: false, messages: [{ role: "user", content: prompt }] }
+        end
+
+        body = JSON.parse(response.body)
+        text = body.dig("message", "content").to_s.strip
+        result = parse_batch_response(text, candidates)
+        log "  → #{result.transform_values { |v| v }.inspect}"
+        result
+      end
+
+      def batch_via_anthropic(candidates, existing, max)
+        api_key = ENV["ANTHROPIC_API_KEY"]
+        unless api_key
+          log "ANTHROPIC_API_KEY not set — skipping"
+          return {}
+        end
+
+        model  = ENV.fetch("FSDB_AI_MODEL", "claude-opus-4-5")
+        prompt = build_batch_prompt(candidates, existing, max)
+
+        log "anthropic #{model} — batch of #{candidates.size} dirs"
+
+        conn = Faraday.new(url: ANTHROPIC_URL) do |f|
+          f.request :json
+          f.response :raise_error
+        end
+
+        response = conn.post do |req|
+          req.headers["x-api-key"]         = api_key
+          req.headers["anthropic-version"] = "2023-06-01"
+          req.body = { model:, max_tokens: 1024, messages: [{ role: "user", content: prompt }] }
+        end
+
+        body = JSON.parse(response.body)
+        text = body.dig("content", 0, "text").to_s.strip
+        result = parse_batch_response(text, candidates)
+        log "  → #{result.inspect}"
+        result
+      end
+
+      def build_batch_prompt(candidates, existing, max)
+        hint = existing.any? ? "Existing categories (prefer reusing): #{existing.first(20).join(", ")}.\n" : ""
+
+        dirs_block = candidates.each_with_index.map do |c, i|
+          sample = c[:children].first(20).join(", ")
+          "#{i + 1}. #{c[:path]}\n   Contents: #{sample}"
+        end.join("\n")
+
+        <<~PROMPT
+          You are cataloguing a filesystem for personal use.
+          #{hint}
+          For each directory below, suggest up to #{max} short topic category labels describing its human-interest subject.
+          Good examples: "python programming", "music", "tax documents", "machine learning", "social skills".
+          Avoid generic terms like "files" or "folder". Skip directories that clearly have no meaningful topic.
+
+          Directories:
+          #{dirs_block}
+
+          Reply with ONLY a JSON object mapping each full directory path to an array of category strings:
+          {
+            "/path/to/dir": ["category one", "category two"],
+            "/path/to/other": ["category three"]
+          }
+        PROMPT
+      end
+
+      def parse_batch_response(text, candidates)
+        match = text.match(/\{.*\}/m)
+        return {} unless match
+
+        raw     = JSON.parse(match[0])
+        valid   = candidates.map { |c| c[:path] }.to_set
+
+        raw.each_with_object({}) do |(path, cats), result|
+          next unless valid.include?(path) && cats.is_a?(Array)
+
+          cleaned = cats.filter_map { |s| v = s.to_s.strip.downcase; v.empty? ? nil : v }.first(5)
+          result[path] = cleaned unless cleaned.empty?
+        end
+      rescue JSON::ParserError
+        {}
+      end
 
       def dispatch(provider, dir_path, child_names, existing, max)
         case provider
