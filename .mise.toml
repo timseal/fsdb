@@ -1,0 +1,11 @@
+[tools]
+ruby = "3.3.10"
+
+[tasks.install]
+run = "bundle install"
+
+[tasks.lint]
+run = "bundle exec rubocop"
+
+[tasks.test]
+run = "bundle exec rspec"
