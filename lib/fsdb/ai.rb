@@ -81,7 +81,7 @@ module Fsdb
         body = JSON.parse(response.body)
         text = body.dig("message", "content").to_s.strip
         result = parse_batch_response(text, candidates)
-        log "  → #{result.transform_values { |v| v }.inspect}"
+        log "  → #{result.inspect}"
         result
       end
 

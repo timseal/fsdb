@@ -206,10 +206,6 @@ module Fsdb
       exit(1)
     end
 
-    def truncate(str, max)
-      str.length > max ? "…#{str[-(max - 1)...]}" : str
-    end
-
     def humanize_bytes(bytes)
       return "0 B" if bytes.nil? || bytes.zero?
 
