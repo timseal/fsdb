@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "fsdb/version"
+require_relative "fsdb/sql_utils"
 require_relative "fsdb/content_types"
 require_relative "fsdb/models"
 require_relative "fsdb/db"

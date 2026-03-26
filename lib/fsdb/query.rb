@@ -29,7 +29,7 @@ module Fsdb
 
       if path_prefix
         wheres << "e.path LIKE ? ESCAPE '\\'"
-        params << "#{like_escape(File.expand_path(path_prefix))}/%"
+        params << "#{SqlUtils.like_escape(File.expand_path(path_prefix))}/%"
       end
 
       wheres << "e.is_dir = 1" if dirs_only
@@ -43,7 +43,7 @@ module Fsdb
 
     def self.list_under(db, path, depth: 1)
       path    = File.expand_path(path.to_s)
-      pattern = "#{like_escape(path)}/%"
+      pattern = "#{SqlUtils.like_escape(path)}/%"
 
       rows = db.execute(
         "#{ENTRY_SELECT} WHERE e.path LIKE ? ESCAPE '\\' GROUP BY e.id ORDER BY e.path",
@@ -93,10 +93,6 @@ module Fsdb
         top_categories:,
         uncategorised:,
       }
-    end
-
-    private_class_method def self.like_escape(str)
-      str.gsub("\\", "\\\\").gsub("%", "\\%").gsub("_", "\\_")
     end
 
     private_class_method def self.row_to_entry(row)

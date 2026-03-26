@@ -1,0 +1,17 @@
+# Points at the fsdb catalogue database created by the CLI.
+# Override with FSDB_DB env var.
+default: &default
+  adapter: sqlite3
+  database: <%= ENV.fetch("FSDB_DB", File.expand_path("~/.local/share/fsdb/fsdb.db")) %>
+  pool: 5
+  timeout: 5000
+
+development:
+  <<: *default
+
+test:
+  <<: *default
+  database: storage/test.sqlite3
+
+production:
+  <<: *default

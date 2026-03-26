@@ -1,0 +1,29 @@
+<h1 class="text-2xl font-bold mb-6">Categories</h1>
+
+<div class="bg-white rounded-lg shadow">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="text-left text-gray-500 border-b">
+        <th class="py-2 px-3">Name</th>
+        <th class="py-2 px-3 text-right">Entries</th>
+        <th class="py-2 px-3"></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @categories.each do |cat| %>
+        <tr class="border-b border-gray-50 hover:bg-gray-50" id="<%= dom_id(cat) %>">
+          <td class="py-2 px-3">
+            <%= link_to cat.name, category_path(cat), class: "text-blue-600 hover:underline" %>
+          </td>
+          <td class="py-2 px-3 text-right"><%= cat.entries_count %></td>
+          <td class="py-2 px-3 text-right">
+            <%= button_to category_path(cat), method: :delete, class: "text-red-500 hover:text-red-700 text-xs",
+                data: { turbo_confirm: "Remove category '#{cat.name}'?" } do %>
+              remove
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>
