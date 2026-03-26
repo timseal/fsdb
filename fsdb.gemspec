@@ -7,7 +7,9 @@ Gem::Specification.new do |spec|
   spec.version = Fsdb::VERSION
   spec.summary = "Filesystem catalogue with content-type and topic tagging"
   spec.authors = ["Tim Anderson"]
-  spec.files   = Dir["lib/**/*.rb", "bin/*"]
+  spec.email   = ["timseal@gmail.com"]
+  spec.license = "MIT"
+  spec.files   = Dir["lib/**/*.rb", "bin/*", "README.md"]
 
   spec.bindir        = "bin"
   spec.executables   = ["fsdb"]
