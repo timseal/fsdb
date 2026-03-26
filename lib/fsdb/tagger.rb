@@ -61,12 +61,8 @@ module Fsdb
       )
     end
 
-    private_class_method def self.like_escape(str)
-      str.gsub("\\", "\\\\").gsub("%", "\\%").gsub("_", "\\_")
-    end
-
     private_class_method def self.descendant_ids(db, path)
-      pattern = "#{like_escape(path)}/%"
+      pattern = "#{SqlUtils.like_escape(path)}/%"
       db.execute("SELECT id FROM entries WHERE path LIKE ? ESCAPE '\\'", [pattern]).map { |r| r["id"] }
     end
   end
