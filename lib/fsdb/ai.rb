@@ -18,7 +18,7 @@ module Fsdb
       # Batch: send many directories in one prompt.
       # candidates: [{path:, children:}, ...]
       # Returns: {path => [categories]}
-      def suggest_categories_batch(candidates, existing_categories, max: 3)
+      def suggest_categories_batch(candidates, existing_categories, max: 3, provider: nil)
         return {} if candidates.empty?
 
         if @mutex.synchronize { @circuit_open }
@@ -26,8 +26,8 @@ module Fsdb
           return {}
         end
 
-        provider = ENV.fetch("FSDB_AI_PROVIDER", "ollama")
-        result   = dispatch_batch(provider, candidates, existing_categories, max)
+        provider ||= ENV.fetch("FSDB_AI_PROVIDER", "ollama")
+        result     = dispatch_batch(provider, candidates, existing_categories, max)
         @mutex.synchronize { reset_failures }
         result
       rescue Faraday::Error, JSON::ParserError, StandardError => e
@@ -35,14 +35,14 @@ module Fsdb
         {}
       end
 
-      def suggest_categories(dir_path, child_names, existing_categories, max: 3)
+      def suggest_categories(dir_path, child_names, existing_categories, max: 3, provider: nil)
         if @mutex.synchronize { @circuit_open }
           log "circuit breaker open — skipping AI for #{dir_path}"
           return []
         end
 
-        provider = ENV.fetch("FSDB_AI_PROVIDER", "ollama")
-        result   = dispatch(provider, dir_path, child_names, existing_categories, max)
+        provider ||= ENV.fetch("FSDB_AI_PROVIDER", "ollama")
+        result     = dispatch(provider, dir_path, child_names, existing_categories, max)
         @mutex.synchronize { reset_failures }
         result
       rescue Faraday::Error, JSON::ParserError, StandardError => e

@@ -22,8 +22,6 @@ module Fsdb
         root = File.expand_path(path)
         error_exit("#{root} does not exist") unless File.exist?(root)
 
-        ENV["FSDB_AI_PROVIDER"] = options[:provider] if options[:provider]
-
         pastel  = Pastel.new
         scanner = Scanner.new(db, root)
 
@@ -45,8 +43,8 @@ module Fsdb
           return
         end
 
+        provider = options[:provider] || "ollama"
         model    = ENV.fetch("FSDB_OLLAMA_MODEL", Ai::DEFAULT_OLLAMA_MODEL)
-        provider = ENV.fetch("FSDB_AI_PROVIDER", "ollama")
         puts "\n#{pastel.bold("AI suggestions")}"
         puts "  Provider   : #{provider} (#{model})"
         puts "  Directories: #{candidates.size}"
@@ -63,7 +61,7 @@ module Fsdb
           total: n_requests, width: 30,
         )
 
-        assigned = scanner.suggest_in_batches(candidates, batch_size:) do |_i, _total|
+        assigned = scanner.suggest_in_batches(candidates, batch_size:, provider:) do |_i, _total|
           ai_bar.advance
         end
         ai_bar.finish
