@@ -1,0 +1,10 @@
+<%= tag.div id: dom_id(entry, :tags), class: "flex flex-wrap gap-1" do %>
+  <% entry.categories.each do |cat| %>
+    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700">
+      <%= cat.name %>
+      <%= button_to entry_tag_path(entry, cat), method: :delete, class: "hover:text-red-500", data: { turbo_frame: "_top" } do %>
+        <span class="text-xs">&times;</span>
+      <% end %>
+    </span>
+  <% end %>
+<% end %>

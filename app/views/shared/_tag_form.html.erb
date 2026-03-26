@@ -1,0 +1,11 @@
+<%= form_with url: entry_tags_path(entry), method: :post, class: "inline-flex items-center gap-1" do |f| %>
+  <input type="text" name="category_name" placeholder="add tag..." list="categories-list"
+         class="text-xs border border-gray-300 rounded px-2 py-0.5 w-28 focus:outline-none focus:border-blue-400">
+  <button type="submit" class="text-xs text-blue-600 hover:text-blue-800">+</button>
+<% end %>
+
+<datalist id="categories-list">
+  <% Category.order(:name).pluck(:name).each do |name| %>
+    <option value="<%= name %>">
+  <% end %>
+</datalist>

@@ -1,0 +1,63 @@
+<h1 class="text-2xl font-bold mb-6">Search</h1>
+
+<%= form_with url: search_path, method: :get, class: "bg-white rounded-lg shadow p-4 mb-6", data: { turbo_frame: "search-results" } do %>
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div>
+      <label class="block text-sm text-gray-500 mb-1">Category</label>
+      <select name="category" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+        <option value="">All</option>
+        <% @categories.each do |name| %>
+          <option value="<%= name %>" <%= "selected" if params[:category] == name %>><%= name %></option>
+        <% end %>
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm text-gray-500 mb-1">Content type</label>
+      <select name="type" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+        <option value="">All</option>
+        <% @content_types.each do |ct| %>
+          <option value="<%= ct %>" <%= "selected" if params[:type] == ct %>><%= ct %></option>
+        <% end %>
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm text-gray-500 mb-1">Under path</label>
+      <input type="text" name="under" value="<%= params[:under] %>" placeholder="/home/..."
+             class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+    </div>
+    <div class="flex items-end gap-2">
+      <label class="flex items-center gap-1 text-sm">
+        <input type="checkbox" name="dirs" value="1" <%= "checked" if params[:dirs] == "1" %>>
+        Dirs only
+      </label>
+      <button type="submit" class="bg-blue-600 text-white px-4 py-1.5 rounded text-sm hover:bg-blue-700">Search</button>
+    </div>
+  </div>
+<% end %>
+
+<turbo-frame id="search-results">
+  <% if @entries.any? %>
+    <p class="text-sm text-gray-500 mb-3"><%= @entries.size %> result(s)</p>
+    <table class="w-full bg-white rounded-lg shadow text-sm">
+      <thead>
+        <tr class="text-left text-gray-500 border-b">
+          <th class="py-2 px-3">Path</th>
+          <th class="py-2 px-3">Type</th>
+          <th class="py-2 px-3">Tags</th>
+          <th class="py-2 px-3"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @entries.each do |entry| %>
+          <% ar_entry = Entry.find_by(path: entry.path) %>
+          <% next unless ar_entry %>
+          <%= render "shared/entry_row", entry: ar_entry %>
+        <% end %>
+      </tbody>
+    </table>
+  <% elsif any_filters? %>
+    <p class="text-gray-500">No results.</p>
+  <% else %>
+    <p class="text-gray-500">Use the filters above to search the catalogue.</p>
+  <% end %>
+</turbo-frame>

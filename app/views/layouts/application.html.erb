@@ -1,28 +1,32 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title><%= content_for(:title) || "Fsdb Rails Scaffold" %></title>
+    <title><%= content_for(:title) || "fsdb" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="application-name" content="Fsdb Rails Scaffold">
-    <meta name="mobile-web-app-capable" content="yes">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
-
     <%= yield :head %>
-
-    <%# Enable PWA manifest for installable apps (make sure to enable in config/routes.rb too!) %>
-    <%#= tag.link rel: "manifest", href: pwa_manifest_path(format: :json) %>
-
-    <link rel="icon" href="/icon.png" type="image/png">
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="/icon.png">
-
-    <%# Includes all stylesheet files in app/assets/stylesheets %>
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
   </head>
 
-  <body>
-    <%= yield %>
+  <body class="bg-gray-50 text-gray-900 min-h-screen">
+    <nav class="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-6">
+      <span class="font-bold text-lg">fsdb</span>
+      <%= link_to "Dashboard", root_path, class: "text-sm hover:text-blue-600 #{'text-blue-600 font-medium' if current_page?(root_path)}" %>
+      <%= link_to "Browse", browse_path, class: "text-sm hover:text-blue-600 #{'text-blue-600 font-medium' if current_page?(browse_path)}" %>
+      <%= link_to "Search", search_path, class: "text-sm hover:text-blue-600 #{'text-blue-600 font-medium' if current_page?(search_path)}" %>
+      <%= link_to "Categories", categories_path, class: "text-sm hover:text-blue-600 #{'text-blue-600 font-medium' if current_page?(categories_path)}" %>
+    </nav>
+
+    <main class="max-w-6xl mx-auto px-6 py-8">
+      <% if flash[:notice] %>
+        <div class="bg-green-50 text-green-800 px-4 py-2 rounded mb-4"><%= flash[:notice] %></div>
+      <% end %>
+      <% if flash[:alert] %>
+        <div class="bg-red-50 text-red-800 px-4 py-2 rounded mb-4"><%= flash[:alert] %></div>
+      <% end %>
+      <%= yield %>
+    </main>
   </body>
 </html>

@@ -1,0 +1,33 @@
+<h1 class="text-2xl font-bold mb-2">Browse</h1>
+<p class="text-sm text-gray-500 mb-6 font-mono"><%= @path %></p>
+
+<% parent = File.dirname(@path) %>
+<% if parent != @path %>
+  <p class="mb-4">
+    <%= link_to browse_path(path: parent), class: "text-sm text-blue-600 hover:underline" do %>
+      &larr; up to <%= File.basename(parent) %>/
+    <% end %>
+  </p>
+<% end %>
+
+<% if @entries.any? %>
+  <table class="w-full bg-white rounded-lg shadow text-sm">
+    <thead>
+      <tr class="text-left text-gray-500 border-b">
+        <th class="py-2 px-3">Name</th>
+        <th class="py-2 px-3">Type</th>
+        <th class="py-2 px-3">Tags</th>
+        <th class="py-2 px-3"></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @entries.sort_by { |e| [e.dir? ? 0 : 1, e.name.downcase] }.each do |entry| %>
+        <% ar_entry = Entry.find_by(path: entry.path) %>
+        <% next unless ar_entry %>
+        <%= render "shared/entry_row", entry: ar_entry %>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p class="text-gray-500">No catalogued entries under this path. Run <code class="bg-gray-100 px-1 rounded">fsdb scan <%= @path %></code> first.</p>
+<% end %>

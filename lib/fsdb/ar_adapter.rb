@@ -20,7 +20,7 @@ module Fsdb
 
     def raw_connection
       conn = ActiveRecord::Base.connection.raw_connection
-      conn.results_as_hash = true unless conn.results_as_hash?
+      conn.results_as_hash = true
       conn
     end
   end
