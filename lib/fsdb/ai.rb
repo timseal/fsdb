@@ -74,12 +74,7 @@ module Fsdb
 
         log "ollama #{model} — batch of #{candidates.size} dirs"
 
-        conn = Faraday.new(url: base_url) do |f|
-          f.request :json
-          f.response :raise_error
-        end
-
-        response = conn.post("/api/chat") do |req|
+        response = ollama_conn(base_url).post("/api/chat") do |req|
           req.body = { model:, stream: false, messages: [{ role: "user", content: prompt }] }
         end
 
@@ -102,12 +97,7 @@ module Fsdb
 
         log "anthropic #{model} — batch of #{candidates.size} dirs"
 
-        conn = Faraday.new(url: ANTHROPIC_URL) do |f|
-          f.request :json
-          f.response :raise_error
-        end
-
-        response = conn.post do |req|
+        response = anthropic_conn.post do |req|
           req.headers["x-api-key"]         = api_key
           req.headers["anthropic-version"] = "2023-06-01"
           req.body = { model:, max_tokens: 1024, messages: [{ role: "user", content: prompt }] }
@@ -182,12 +172,7 @@ module Fsdb
 
         log "ollama #{model} → #{dir_path}"
 
-        conn = Faraday.new(url: base_url) do |f|
-          f.request :json
-          f.response :raise_error
-        end
-
-        response = conn.post("/api/chat") do |req|
+        response = ollama_conn(base_url).post("/api/chat") do |req|
           req.body = { model:, stream: false, messages: [{ role: "user", content: prompt }] }
         end
 
@@ -212,12 +197,7 @@ module Fsdb
 
         log "anthropic #{model} → #{dir_path}"
 
-        conn = Faraday.new(url: ANTHROPIC_URL) do |f|
-          f.request :json
-          f.response :raise_error
-        end
-
-        response = conn.post do |req|
+        response = anthropic_conn.post do |req|
           req.headers["x-api-key"]         = api_key
           req.headers["anthropic-version"] = "2023-06-01"
           req.body = { model:, max_tokens: 256, messages: [{ role: "user", content: prompt }] }
@@ -268,6 +248,25 @@ module Fsdb
         if @consecutive_fails >= FAILURE_LIMIT
           @circuit_open = true
           log "#{FAILURE_LIMIT} consecutive failures — giving up on AI suggestions for this run"
+        end
+      end
+
+      def ollama_conn(base_url)
+        @ollama_conns ||= {}
+        @ollama_conns[base_url] ||= Faraday.new(url: base_url) do |f|
+          f.options.open_timeout = 5
+          f.options.timeout      = 30
+          f.request :json
+          f.response :raise_error
+        end
+      end
+
+      def anthropic_conn
+        @anthropic_conn ||= Faraday.new(url: ANTHROPIC_URL) do |f|
+          f.options.open_timeout = 5
+          f.options.timeout      = 30
+          f.request :json
+          f.response :raise_error
         end
       end
 
