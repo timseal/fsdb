@@ -21,38 +21,32 @@ module Fsdb
       def suggest_categories_batch(candidates, existing_categories, max: 3)
         return {} if candidates.empty?
 
-        if @circuit_open
+        if @mutex.synchronize { @circuit_open }
           log "circuit breaker open — skipping batch of #{candidates.size} dirs"
           return {}
         end
 
         provider = ENV.fetch("FSDB_AI_PROVIDER", "ollama")
-
-        @mutex.synchronize do
-          result = dispatch_batch(provider, candidates, existing_categories, max)
-          reset_failures
-          result
-        end
+        result   = dispatch_batch(provider, candidates, existing_categories, max)
+        @mutex.synchronize { reset_failures }
+        result
       rescue Faraday::Error, JSON::ParserError, StandardError => e
-        record_failure("batch(#{candidates.size})", e)
+        @mutex.synchronize { record_failure("batch(#{candidates.size})", e) }
         {}
       end
 
       def suggest_categories(dir_path, child_names, existing_categories, max: 3)
-        if @circuit_open
+        if @mutex.synchronize { @circuit_open }
           log "circuit breaker open — skipping AI for #{dir_path}"
           return []
         end
 
         provider = ENV.fetch("FSDB_AI_PROVIDER", "ollama")
-
-        @mutex.synchronize do
-          result = dispatch(provider, dir_path, child_names, existing_categories, max)
-          reset_failures
-          result
-        end
+        result   = dispatch(provider, dir_path, child_names, existing_categories, max)
+        @mutex.synchronize { reset_failures }
+        result
       rescue Faraday::Error, JSON::ParserError, StandardError => e
-        record_failure(dir_path, e)
+        @mutex.synchronize { record_failure(dir_path, e) }
         []
       end
 
