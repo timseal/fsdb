@@ -220,15 +220,20 @@ module Fsdb
     end
 
     def build_tree_hash(entries, base)
-      # Build a nested hash for TTY::Tree: { "label" => { children... } or [] }
-      tree = {}
-      entries.each do |entry|
-        label = entry.path.delete_prefix("#{base}/")
-        label += "  [#{entry.display_type}]" unless entry.dir?
-        label += "  (#{entry.categories.join(", ")})" if entry.categories.any?
-        tree[label] = []
-      end
-      { base => tree }
+      { base => nest_entries(entries, base) }
+    end
+
+    def nest_entries(entries, parent)
+      entries
+        .select { |e| File.dirname(e.path) == parent }
+        .each_with_object({}) do |entry, hash|
+          label = File.basename(entry.path)
+          label += "  [#{entry.display_type}]" unless entry.dir?
+          label += "  (#{entry.categories.join(", ")})" if entry.categories.any?
+
+          children = entries.select { |e| e.path.start_with?("#{entry.path}/") }
+          hash[label] = children.any? ? nest_entries(children, entry.path) : []
+        end
     end
   end
 end
