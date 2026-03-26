@@ -6,7 +6,7 @@ require "json"
 module Fsdb
   module Ai
     ANTHROPIC_URL    = "https://api.anthropic.com/v1/messages"
-    DEFAULT_OLLAMA_URL   = "http://pmacs-dev-142.local:11434"
+    DEFAULT_OLLAMA_URL   = ENV.fetch("FSDB_OLLAMA_URL", "http://localhost:11434")
     DEFAULT_OLLAMA_MODEL = "gemma3:1b"
     FAILURE_LIMIT = 3
 
@@ -68,13 +68,12 @@ module Fsdb
       end
 
       def batch_via_ollama(candidates, existing, max)
-        base_url = ENV.fetch("FSDB_OLLAMA_URL", DEFAULT_OLLAMA_URL)
-        model    = ENV.fetch("FSDB_OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL)
-        prompt   = build_batch_prompt(candidates, existing, max)
+        model  = ENV.fetch("FSDB_OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL)
+        prompt = build_batch_prompt(candidates, existing, max)
 
         log "ollama #{model} — batch of #{candidates.size} dirs"
 
-        response = ollama_conn(base_url).post("/api/chat") do |req|
+        response = ollama_conn(DEFAULT_OLLAMA_URL).post("/api/chat") do |req|
           req.body = { model:, stream: false, messages: [{ role: "user", content: prompt }] }
         end
 
@@ -166,13 +165,12 @@ module Fsdb
       # ── Ollama ──────────────────────────────────────────────────────────────
 
       def suggest_via_ollama(dir_path, child_names, existing, max)
-        base_url = ENV.fetch("FSDB_OLLAMA_URL", DEFAULT_OLLAMA_URL)
-        model    = ENV.fetch("FSDB_OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL)
-        prompt   = build_prompt(dir_path, child_names, existing, max)
+        model  = ENV.fetch("FSDB_OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL)
+        prompt = build_prompt(dir_path, child_names, existing, max)
 
         log "ollama #{model} → #{dir_path}"
 
-        response = ollama_conn(base_url).post("/api/chat") do |req|
+        response = ollama_conn(DEFAULT_OLLAMA_URL).post("/api/chat") do |req|
           req.body = { model:, stream: false, messages: [{ role: "user", content: prompt }] }
         end
 

@@ -3,6 +3,7 @@ vendor/
 *.gem
 .DS_Store
 .ruby-lsp/
+.claude/settings.json
 .claude/settings.local.json
 tmp/
 coverage/

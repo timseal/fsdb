@@ -74,7 +74,7 @@ A circuit breaker stops AI calls after 3 consecutive failures. Calls are seriali
 | Variable | Default | Purpose |
 |---|---|---|
 | `FSDB_AI_PROVIDER` | `ollama` | `ollama` or `anthropic` |
-| `FSDB_OLLAMA_URL` | `http://pmacs-dev-142.local:11434` | Ollama server |
+| `FSDB_OLLAMA_URL` | `http://localhost:11434` | Ollama server |
 | `FSDB_OLLAMA_MODEL` | `gemma3:1b` | Model name |
 | `FSDB_AI_MODEL` | `claude-opus-4-5` | Anthropic model |
 | `FSDB_AI_MAX_DEPTH` | `3` | Max directory depth for AI suggestions |
