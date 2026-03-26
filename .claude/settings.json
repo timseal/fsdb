@@ -25,7 +25,12 @@
       "Bash(FSDB_DB=/tmp/t.db bundle exec bin/fsdb help scan)",
       "Bash(git init:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(curl -s http://pmacs-dev-142.local:11434/api/tags)",
+      "WebSearch",
+      "Bash(curl -s -X POST http://pmacs-dev-142.local:11434/api/pull -d '{\"\"name\"\":\"\"gemma3:1b\"\",\"\"stream\"\":false}')",
+      "Bash(curl -s -X POST http://pmacs-dev-142.local:11434/api/chat -H \"Content-Type: application/json\" -d '{\"\"\"\"model\"\"\"\":\"\"\"\"gemma3:1b\"\"\"\",\"\"\"\"stream\"\"\"\":false,\"\"\"\"messages\"\"\"\":[{\"\"\"\"role\"\"\"\":\"\"\"\"user\"\"\"\",\"\"\"\"content\"\"\"\":\"\"\"\"Reply with ONLY a JSON object: {\\\\\"\"\"\"test\\\\\"\"\"\": [\\\\\"\"\"\"hello\\\\\"\"\"\"]}\"\"\"\"}]}')",
+      "Bash(FSDB_DB=/tmp/t.db bundle exec bin/fsdb scan /Users/timand/src/fsdb)"
     ],
     "additionalDirectories": [
       "/tmp"

@@ -22,8 +22,6 @@ module Fsdb
         root = File.expand_path(path)
         error_exit("#{root} does not exist") unless File.exist?(root)
 
-        ENV["FSDB_AI_PROVIDER"] = options[:provider] if options[:provider]
-
         pastel  = Pastel.new
         scanner = Scanner.new(db, root)
 
@@ -45,8 +43,8 @@ module Fsdb
           return
         end
 
+        provider = options[:provider] || "ollama"
         model    = ENV.fetch("FSDB_OLLAMA_MODEL", Ai::DEFAULT_OLLAMA_MODEL)
-        provider = ENV.fetch("FSDB_AI_PROVIDER", "ollama")
         puts "\n#{pastel.bold("AI suggestions")}"
         puts "  Provider   : #{provider} (#{model})"
         puts "  Directories: #{candidates.size}"
@@ -63,7 +61,7 @@ module Fsdb
           total: n_requests, width: 30,
         )
 
-        assigned = scanner.suggest_in_batches(candidates, batch_size:) do |_i, _total|
+        assigned = scanner.suggest_in_batches(candidates, batch_size:, provider:) do |_i, _total|
           ai_bar.advance
         end
         ai_bar.finish
@@ -208,10 +206,6 @@ module Fsdb
       exit(1)
     end
 
-    def truncate(str, max)
-      str.length > max ? "…#{str[-(max - 1)...]}" : str
-    end
-
     def humanize_bytes(bytes)
       return "0 B" if bytes.nil? || bytes.zero?
 
@@ -222,15 +216,20 @@ module Fsdb
     end
 
     def build_tree_hash(entries, base)
-      # Build a nested hash for TTY::Tree: { "label" => { children... } or [] }
-      tree = {}
-      entries.each do |entry|
-        label = entry.path.delete_prefix("#{base}/")
-        label += "  [#{entry.display_type}]" unless entry.dir?
-        label += "  (#{entry.categories.join(", ")})" if entry.categories.any?
-        tree[label] = []
-      end
-      { base => tree }
+      { base => nest_entries(entries, base) }
+    end
+
+    def nest_entries(entries, parent)
+      entries
+        .select { |e| File.dirname(e.path) == parent }
+        .each_with_object({}) do |entry, hash|
+          label = File.basename(entry.path)
+          label += "  [#{entry.display_type}]" unless entry.dir?
+          label += "  (#{entry.categories.join(", ")})" if entry.categories.any?
+
+          children = entries.select { |e| e.path.start_with?("#{entry.path}/") }
+          hash[label] = children.any? ? nest_entries(children, entry.path) : []
+        end
     end
   end
 end

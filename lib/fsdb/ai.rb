@@ -18,41 +18,35 @@ module Fsdb
       # Batch: send many directories in one prompt.
       # candidates: [{path:, children:}, ...]
       # Returns: {path => [categories]}
-      def suggest_categories_batch(candidates, existing_categories, max: 3)
+      def suggest_categories_batch(candidates, existing_categories, max: 3, provider: nil)
         return {} if candidates.empty?
 
-        if @circuit_open
+        if @mutex.synchronize { @circuit_open }
           log "circuit breaker open — skipping batch of #{candidates.size} dirs"
           return {}
         end
 
-        provider = ENV.fetch("FSDB_AI_PROVIDER", "ollama")
-
-        @mutex.synchronize do
-          result = dispatch_batch(provider, candidates, existing_categories, max)
-          reset_failures
-          result
-        end
+        provider ||= ENV.fetch("FSDB_AI_PROVIDER", "ollama")
+        result     = dispatch_batch(provider, candidates, existing_categories, max)
+        @mutex.synchronize { reset_failures }
+        result
       rescue Faraday::Error, JSON::ParserError, StandardError => e
-        record_failure("batch(#{candidates.size})", e)
+        @mutex.synchronize { record_failure("batch(#{candidates.size})", e) }
         {}
       end
 
-      def suggest_categories(dir_path, child_names, existing_categories, max: 3)
-        if @circuit_open
+      def suggest_categories(dir_path, child_names, existing_categories, max: 3, provider: nil)
+        if @mutex.synchronize { @circuit_open }
           log "circuit breaker open — skipping AI for #{dir_path}"
           return []
         end
 
-        provider = ENV.fetch("FSDB_AI_PROVIDER", "ollama")
-
-        @mutex.synchronize do
-          result = dispatch(provider, dir_path, child_names, existing_categories, max)
-          reset_failures
-          result
-        end
+        provider ||= ENV.fetch("FSDB_AI_PROVIDER", "ollama")
+        result     = dispatch(provider, dir_path, child_names, existing_categories, max)
+        @mutex.synchronize { reset_failures }
+        result
       rescue Faraday::Error, JSON::ParserError, StandardError => e
-        record_failure(dir_path, e)
+        @mutex.synchronize { record_failure(dir_path, e) }
         []
       end
 
@@ -80,19 +74,14 @@ module Fsdb
 
         log "ollama #{model} — batch of #{candidates.size} dirs"
 
-        conn = Faraday.new(url: base_url) do |f|
-          f.request :json
-          f.response :raise_error
-        end
-
-        response = conn.post("/api/chat") do |req|
+        response = ollama_conn(base_url).post("/api/chat") do |req|
           req.body = { model:, stream: false, messages: [{ role: "user", content: prompt }] }
         end
 
         body = JSON.parse(response.body)
         text = body.dig("message", "content").to_s.strip
         result = parse_batch_response(text, candidates)
-        log "  → #{result.transform_values { |v| v }.inspect}"
+        log "  → #{result.inspect}"
         result
       end
 
@@ -108,12 +97,7 @@ module Fsdb
 
         log "anthropic #{model} — batch of #{candidates.size} dirs"
 
-        conn = Faraday.new(url: ANTHROPIC_URL) do |f|
-          f.request :json
-          f.response :raise_error
-        end
-
-        response = conn.post do |req|
+        response = anthropic_conn.post do |req|
           req.headers["x-api-key"]         = api_key
           req.headers["anthropic-version"] = "2023-06-01"
           req.body = { model:, max_tokens: 1024, messages: [{ role: "user", content: prompt }] }
@@ -188,12 +172,7 @@ module Fsdb
 
         log "ollama #{model} → #{dir_path}"
 
-        conn = Faraday.new(url: base_url) do |f|
-          f.request :json
-          f.response :raise_error
-        end
-
-        response = conn.post("/api/chat") do |req|
+        response = ollama_conn(base_url).post("/api/chat") do |req|
           req.body = { model:, stream: false, messages: [{ role: "user", content: prompt }] }
         end
 
@@ -218,12 +197,7 @@ module Fsdb
 
         log "anthropic #{model} → #{dir_path}"
 
-        conn = Faraday.new(url: ANTHROPIC_URL) do |f|
-          f.request :json
-          f.response :raise_error
-        end
-
-        response = conn.post do |req|
+        response = anthropic_conn.post do |req|
           req.headers["x-api-key"]         = api_key
           req.headers["anthropic-version"] = "2023-06-01"
           req.body = { model:, max_tokens: 256, messages: [{ role: "user", content: prompt }] }
@@ -274,6 +248,25 @@ module Fsdb
         if @consecutive_fails >= FAILURE_LIMIT
           @circuit_open = true
           log "#{FAILURE_LIMIT} consecutive failures — giving up on AI suggestions for this run"
+        end
+      end
+
+      def ollama_conn(base_url)
+        @ollama_conns ||= {}
+        @ollama_conns[base_url] ||= Faraday.new(url: base_url) do |f|
+          f.options.open_timeout = 5
+          f.options.timeout      = 30
+          f.request :json
+          f.response :raise_error
+        end
+      end
+
+      def anthropic_conn
+        @anthropic_conn ||= Faraday.new(url: ANTHROPIC_URL) do |f|
+          f.options.open_timeout = 5
+          f.options.timeout      = 30
+          f.request :json
+          f.response :raise_error
         end
       end
 

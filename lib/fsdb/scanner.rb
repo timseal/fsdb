@@ -70,7 +70,7 @@ module Fsdb
 
     # Phase 2: run AI suggestions in batches. Yields (batch_index, total_batches) for progress.
     # Returns total number of categories assigned.
-    def suggest_in_batches(candidates, batch_size:, &on_batch)
+    def suggest_in_batches(candidates, batch_size:, provider: nil, &on_batch)
       return 0 if candidates.empty?
 
       existing    = existing_categories
@@ -81,7 +81,7 @@ module Fsdb
       batches.each_with_index do |batch, i|
         on_batch&.call(i + 1, total)
 
-        suggestions = Ai.suggest_categories_batch(batch, existing)
+        suggestions = Ai.suggest_categories_batch(batch, existing, provider: provider)
         suggestions.each do |path, cats|
           cats.each do |cat|
             Tagger.assign(@db, path, cat, propagate: false, is_inherited: false)
