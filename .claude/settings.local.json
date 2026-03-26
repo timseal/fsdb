@@ -4,7 +4,9 @@
       "Bash(wc -l /Users/timand/src/mynet/*.rb /Users/timand/src/mynet/*.json /Users/timand/src/mynet/*.md)",
       "Bash(git -C /Users/timand/src/mynet log --oneline)",
       "Bash(pip3 --version)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "mcp__plugin_claude-mem-lite_mem__mem_save",
+      "Bash(git:*)"
     ]
   }
 }
